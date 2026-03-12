@@ -179,6 +179,10 @@ public class EntityRule {
         return needs(rules, "body") || needs(rules, "notes_jsoup");
     }
 
+    static boolean needsBody(EntityRule rule) {
+        return needsBody(Collections.singletonList(rule));
+    }
+
     private static boolean needs(List<EntityRule> rules, String what) {
         for (EntityRule rule : rules)
             try {

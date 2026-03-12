@@ -106,6 +106,10 @@ class NotificationHelper {
             "LEAKCANARY_MAX"
     ));
 
+    private static int getPreviewHash(String preview) {
+        return (TextUtils.isEmpty(preview) ? 0 : preview.hashCode());
+    }
+
     @RequiresApi(api = Build.VERSION_CODES.O)
     static void createNotificationChannels(Context context) {
         // https://issuetracker.google.com/issues/65108694
@@ -386,6 +390,7 @@ class NotificationHelper {
         boolean notify_summary = prefs.getBoolean("notify_summary", false);
         boolean notify_preview = prefs.getBoolean("notify_preview", true);
         boolean notify_preview_only = prefs.getBoolean("notify_preview_only", false);
+        boolean auto_decrypt_incoming = prefs.getBoolean("auto_decrypt_incoming", false);
         boolean notify_screen_on = prefs.getBoolean("notify_screen_on", false);
         boolean wearable_preview = prefs.getBoolean("wearable_preview", false);
         boolean biometrics = prefs.getBoolean("biometrics", false);
@@ -456,6 +461,17 @@ class NotificationHelper {
 
             if (notify_preview && notify_preview_only && !message.content)
                 continue;
+
+            if (auto_decrypt_incoming && notify_preview) {
+                if (message.isEncrypted() && !message.content) {
+                    Log.i("Notify postpone id=" + message.id + " encrypted without content");
+                    continue;
+                }
+                if (message.isEncrypted() && message.content && TextUtils.isEmpty(message.preview)) {
+                    Log.i("Notify postpone id=" + message.id + " preview missing");
+                    continue;
+                }
+            }
 
             if (foreground && notify_background_only && message.notifying == 0) {
                 Log.i("Notify foreground=" + message.id);
@@ -538,9 +554,21 @@ class NotificationHelper {
                 }
 
                 long id = (message.content ? message.id : -message.id);
+                int currentPreviewHash = getPreviewHash(message.preview);
+                Integer previousPreviewHash = data.previewHash.get(message.id);
+                boolean previewChanged = (previousPreviewHash == null
+                    ? currentPreviewHash != 0
+                    : previousPreviewHash != currentPreviewHash);
+
                 if (remove.contains(id)) {
                     remove.remove(id);
                     Log.i("Notify existing=" + id);
+                    if (previewChanged && message.content && notify_preview) {
+                        Log.i("Notify preview changed id=" + message.id +
+                                " previous=" + previousPreviewHash + " current=" + currentPreviewHash);
+                        add.add(id);
+                        update.add(id);
+                    }
                 } else {
                     boolean existing = remove.contains(-id);
                     if (existing) {
@@ -548,7 +576,10 @@ class NotificationHelper {
                             Log.i("Notify preview=" + id);
                             add.add(id);
                             update.add(id);
-                        }
+                        } else
+                            Log.i("Notify no preview update id=" + message.id +
+                                    " content=" + message.content +
+                                    " notify_preview=" + notify_preview);
                         remove.remove(-id);
                     } else {
                         flash = true;
@@ -564,6 +595,8 @@ class NotificationHelper {
                     }
                     Log.i("Notify adding=" + id + " existing=" + existing + " silent=" + message.ui_silent);
                 }
+
+                data.previewHash.put(message.id, currentPreviewHash);
             }
 
             if (noise)
@@ -608,6 +641,7 @@ class NotificationHelper {
 
                 data.groupNotifying.get(group).remove(id);
                 db.message().setMessageNotifying(Math.abs(id), 0);
+                data.previewHash.remove(Math.abs(id));
             }
 
             if (notifications.size() == 0) {
@@ -981,6 +1015,39 @@ class NotificationHelper {
                 Log.i("Notify local=" + message.id);
             }
 
+            String previewText = message.preview;
+            String fullText = null;
+
+            if (TextUtils.isEmpty(previewText))
+                Log.i("Notify preview missing id=" + message.id);
+
+            if (message.content && notify_preview) {
+                boolean needFullText = notify_preview_all;
+                boolean needPreviewFallback = TextUtils.isEmpty(previewText);
+                if (needFullText || needPreviewFallback) {
+                    try {
+                        File file = message.getFile(context);
+                        String text = HtmlHelper.getFullText(context, file);
+                        if (needFullText)
+                            fullText = text;
+                        if (needPreviewFallback)
+                            previewText = text;
+                        Log.i("Notify preview load id=" + message.id + " needFull=" + needFullText + " needFallback=" + needPreviewFallback +
+                                " text=" + (text == null ? "null" : ("len=" + text.length())));
+                    } catch (Throwable ex) {
+                        Log.e("Notify preview load failed id=" + message.id);
+                        Log.e(ex);
+                    }
+                }
+
+                if (fullText != null && fullText.length() > MAX_PREVIEW)
+                    fullText = fullText.substring(0, MAX_PREVIEW);
+                if (previewText != null && previewText.length() > MAX_PREVIEW)
+                    previewText = previewText.substring(0, MAX_PREVIEW);
+                if (needPreviewFallback)
+                    Log.i("Notify preview fallback id=" + message.id + " success=" + !TextUtils.isEmpty(previewText));
+            }
+
             if (notify_messaging) {
                 // https://developer.android.com/training/cars/messaging
                 String meName = MessageHelper.formatAddresses(message.to, email_format, false);
@@ -1006,8 +1073,8 @@ class NotificationHelper {
                 if (!TextUtils.isEmpty(message.subject) && notify_subject)
                     messagingStyle.setConversationTitle(message.subject);
 
-                messagingStyle.addMessage(
-                        notify_preview && message.preview != null ? message.preview : "",
+        messagingStyle.addMessage(
+            notify_preview && previewText != null ? previewText : "",
                         message.received,
                         you.build());
 
@@ -1038,16 +1105,7 @@ class NotificationHelper {
 
             if (message.content && notify_preview) {
                 // Android will truncate the text
-                String preview = message.preview;
-                if (notify_preview_all)
-                    try {
-                        File file = message.getFile(context);
-                        preview = HtmlHelper.getFullText(context, file);
-                        if (preview != null && preview.length() > MAX_PREVIEW)
-                            preview = preview.substring(0, MAX_PREVIEW);
-                    } catch (Throwable ex) {
-                        Log.e(ex);
-                    }
+                String preview = (notify_preview_all && fullText != null ? fullText : previewText);
 
                 // Wearables
                 StringBuilder sb = new StringBuilder();
@@ -1414,6 +1472,7 @@ class NotificationHelper {
     static class NotificationData {
         private Map<Long, Long> groupLast = new HashMap<>();
         private Map<Long, List<Long>> groupNotifying = new HashMap<>();
+        private Map<Long, Integer> previewHash = new HashMap<>();
 
         NotificationData(Context context) {
             // Get existing notifications

@@ -68,6 +68,7 @@ import com.sun.mail.imap.protocol.IMAPResponse;
 import net.openid.appauth.AuthState;
 
 import org.json.JSONObject;
+import org.openintents.openpgp.util.OpenPgpApi;
 
 import java.io.File;
 import java.io.IOException;
@@ -135,6 +136,8 @@ public class ServiceSynchronize extends ServiceBase implements SharedPreferences
             Helper.getBackgroundExecutor(1, "sync");
     private static final ExecutorService executorNotify =
             Helper.getBackgroundExecutor(1, "notify");
+        private static final ExecutorService executorDecryptNotify =
+            Helper.getBackgroundExecutor(1, "decrypt_notify");
 
     static final int DEFAULT_BACKOFF_POWER = 3; // 2^3=8 seconds (totally 8+2x20=48 seconds)
 
@@ -160,6 +163,11 @@ public class ServiceSynchronize extends ServiceBase implements SharedPreferences
     private static final int FETCH_YIELD_DURATION = 50; // milliseconds
     private static final long WATCHDOG_INTERVAL = 60 * 60 * 1000L; // milliseconds
     private static final long MAX_QUOTA = 1000 * 1000 * 1000L; // KB
+    private static final long DECRYPT_RETRY_BASE = 30 * 1000L; // milliseconds
+    private static final long DECRYPT_RETRY_MAX = 30 * 60 * 1000L; // milliseconds
+
+    private final Map<Long, Long> decryptRetryAt = new HashMap<>();
+    private final Map<Long, Integer> decryptFailures = new HashMap<>();
 
     private static final String ACTION_NEW_MESSAGE_COUNT = BuildConfig.APPLICATION_ID + ".NEW_MESSAGE_COUNT";
 
@@ -945,6 +953,25 @@ public class ServiceSynchronize extends ServiceBase implements SharedPreferences
                         try {
                             boolean fg = Boolean.TRUE.equals(foreground.getValue());
                             NotificationHelper.notifyMessages(ServiceSynchronize.this, messages, notificationData, fg);
+
+                            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(ServiceSynchronize.this);
+                            if (prefs.getBoolean("auto_decrypt_incoming", false))
+                                executorDecryptNotify.submit(new RunnableEx("autoDecryptIncoming") {
+                                    @Override
+                                    public void delegate() {
+                                        try {
+                                            List<TupleMessageEx> decrypted = autoDecryptIncomingMessages(messages);
+                                            if (decrypted != messages) {
+                                                boolean foregroundNow = Boolean.TRUE.equals(foreground.getValue());
+                                                NotificationHelper.notifyMessages(ServiceSynchronize.this, decrypted, notificationData, foregroundNow);
+                                            }
+                                        } catch (SecurityException ex) {
+                                            Log.w(ex);
+                                        } catch (Throwable ex) {
+                                            Log.e(ex);
+                                        }
+                                    }
+                                });
                         } catch (SecurityException ex) {
                             Log.w(ex);
                             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(ServiceSynchronize.this);
@@ -3294,6 +3321,97 @@ public class ServiceSynchronize extends ServiceBase implements SharedPreferences
                  */
             }
         }
+    }
+
+    private List<TupleMessageEx> autoDecryptIncomingMessages(List<TupleMessageEx> original) {
+        if (original == null || original.isEmpty())
+            return original;
+
+        List<TupleMessageEx> processed = new ArrayList<>(original);
+        DB db = DB.getInstance(this);
+        boolean changed = false;
+        long now = new Date().getTime();
+
+        for (int i = 0; i < processed.size(); i++) {
+            TupleMessageEx message = processed.get(i);
+            if (message == null)
+                continue;
+            if (message.isUnlocked())
+                continue;
+            if (!isPgpEncrypted(message))
+                continue;
+            if (!canAttemptAutoDecrypt(message.id, now))
+                continue;
+
+            try {
+                Intent data = new Intent(OpenPgpApi.ACTION_DECRYPT_VERIFY);
+                data.putExtra(BuildConfig.APPLICATION_ID, message.id);
+
+                MessageDecryptor.Result result = MessageDecryptor.decrypt(this, data, true, false);
+                if (result != null && result.retryStrip) {
+                    Intent stripped = new Intent(OpenPgpApi.ACTION_DECRYPT_VERIFY);
+                    stripped.putExtra(BuildConfig.APPLICATION_ID, message.id);
+                    result = MessageDecryptor.decrypt(this, stripped, true, true);
+                }
+
+                if (result != null && result.decrypted) {
+                    clearAutoDecryptFailure(message.id);
+                    TupleMessageEx refreshed = db.message().getMessageEx(message.id);
+                    if (refreshed != null) {
+                        processed.set(i, refreshed);
+                        changed = true;
+                    }
+                } else
+                    recordAutoDecryptFailure(message.id);
+            } catch (OperationCanceledException ex) {
+                Log.i(ex);
+                recordAutoDecryptFailure(message.id);
+            } catch (Throwable ex) {
+                Log.e(ex);
+                recordAutoDecryptFailure(message.id);
+            }
+        }
+
+        return (changed ? processed : original);
+    }
+
+    private boolean canAttemptAutoDecrypt(long messageId, long now) {
+        Long next = decryptRetryAt.get(messageId);
+        return (next == null || next <= now);
+    }
+
+    private void clearAutoDecryptFailure(long messageId) {
+        decryptRetryAt.remove(messageId);
+        decryptFailures.remove(messageId);
+    }
+
+    private void recordAutoDecryptFailure(long messageId) {
+        int failures = (decryptFailures.containsKey(messageId)
+                ? decryptFailures.get(messageId) + 1
+                : 1);
+        decryptFailures.put(messageId, failures);
+
+        long delay = DECRYPT_RETRY_BASE * (1L << Math.min(10, failures - 1));
+        if (delay > DECRYPT_RETRY_MAX)
+            delay = DECRYPT_RETRY_MAX;
+
+        long at = new Date().getTime() + delay;
+        decryptRetryAt.put(messageId, at);
+        Log.i("Auto decrypt retry id=" + messageId + " failures=" + failures + " delay=" + delay);
+    }
+
+    private boolean isPgpEncrypted(EntityMessage message) {
+        if (message == null)
+            return false;
+
+        Integer encrypt = message.encrypt;
+        if (EntityMessage.PGP_SIGNENCRYPT.equals(encrypt) ||
+                EntityMessage.PGP_ENCRYPTONLY.equals(encrypt))
+            return true;
+
+        Integer uiencrypt = message.ui_encrypt;
+        return EntityMessage.PGP_SIGNENCRYPT.equals(uiencrypt) ||
+                EntityMessage.PGP_ENCRYPTONLY.equals(uiencrypt);
     }
 
     static void boot(final Context context) {

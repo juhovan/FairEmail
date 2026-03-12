@@ -868,6 +868,7 @@
     <string name="title_advanced_encrypt_reply">Automatically encrypt when replying to an encrypted message</string>
     <string name="title_advanced_auto_verify">Automatically verify signed messages</string>
     <string name="title_advanced_auto_decrypt">Automatically decrypt messages</string>
+    <string name="title_advanced_auto_decrypt_incoming">Decrypt incoming messages immediately</string>
     <string name="title_advanced_auto_undo_decrypt">Undo decryption on closing conversation</string>
 
     <string name="title_advanced_openpgp">OpenPGP provider</string>

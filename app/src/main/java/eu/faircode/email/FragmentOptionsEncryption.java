@@ -91,6 +91,7 @@ public class FragmentOptionsEncryption extends FragmentBase
     private SwitchCompat swEncryptReply;
     private SwitchCompat swAutoVerify;
     private SwitchCompat swAutoDecrypt;
+    private SwitchCompat swAutoDecryptIncoming;
     private SwitchCompat swAutoUndoDecrypt;
     private Button btnReset;
 
@@ -122,7 +123,7 @@ public class FragmentOptionsEncryption extends FragmentBase
 
     final static List<String> RESET_OPTIONS = Collections.unmodifiableList(Arrays.asList(
             "sign_default", "encrypt_default", "encrypt_auto", "encrypt_reply",
-            "auto_verify", "auto_decrypt", "auto_undecrypt",
+            "auto_verify", "auto_decrypt", "auto_decrypt_incoming", "auto_undecrypt",
             "openpgp_provider", "autocrypt", "autocrypt_mutual", "encrypt_subject",
             "sign_algo_smime", "encrypt_algo_smime", "check_certificate", "check_key_usage"
     ));
@@ -146,6 +147,7 @@ public class FragmentOptionsEncryption extends FragmentBase
         swEncryptReply = view.findViewById(R.id.swEncryptReply);
         swAutoVerify = view.findViewById(R.id.swAutoVerify);
         swAutoDecrypt = view.findViewById(R.id.swAutoDecrypt);
+        swAutoDecryptIncoming = view.findViewById(R.id.swAutoDecryptIncoming);
         swAutoUndoDecrypt = view.findViewById(R.id.swAutoUndoDecrypt);
         btnReset = view.findViewById(R.id.btnReset);
 
@@ -251,6 +253,13 @@ public class FragmentOptionsEncryption extends FragmentBase
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
                 prefs.edit().putBoolean("auto_decrypt", checked).apply();
+            }
+        });
+
+        swAutoDecryptIncoming.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("auto_decrypt_incoming", checked).apply();
             }
         });
 
@@ -687,6 +696,7 @@ public class FragmentOptionsEncryption extends FragmentBase
             swEncryptReply.setChecked(prefs.getBoolean("encrypt_reply", false));
             swAutoVerify.setChecked(prefs.getBoolean("auto_verify", false));
             swAutoDecrypt.setChecked(prefs.getBoolean("auto_decrypt", false));
+            swAutoDecryptIncoming.setChecked(prefs.getBoolean("auto_decrypt_incoming", false));
             swAutoUndoDecrypt.setChecked(prefs.getBoolean("auto_undecrypt", false));
 
             String provider = prefs.getString("openpgp_provider", Helper.PGP_OPENKEYCHAIN_PACKAGE);
