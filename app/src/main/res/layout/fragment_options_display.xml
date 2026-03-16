@@ -2409,21 +2409,6 @@
                     app:layout_constraintTop_toBottomOf="@id/swTextAlign"
                     app:switchPadding="12dp" />
 
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/swAuthentication"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:checked="true"
-                    android:drawableStart="@drawable/twotone_flag_24"
-                    android:drawablePadding="6dp"
-                    android:text="@string/title_advanced_authentication"
-                    app:drawableTint="?attr/colorWarning"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/swTextTitles"
-                    app:switchPadding="12dp" />
-
                 <TextView
                     android:id="@+id/tvAuthenticationHint"
                     android:layout_width="0dp"
@@ -2446,6 +2431,44 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tvAuthenticationHint"
+                    app:switchPadding="12dp" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swSpamScoreList"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/title_advanced_spam_score_list"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swTextTitles"
+                    app:switchPadding="12dp" />
+
+                <TextView
+                    android:id="@+id/tvSpamScoreListHint"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="48dp"
+                    android:text="@string/title_advanced_spam_score_list_hint"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textStyle="italic"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/swSpamScoreList" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/swAuthentication"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:checked="true"
+                    android:drawableStart="@drawable/twotone_flag_24"
+                    android:drawablePadding="6dp"
+                    android:text="@string/title_advanced_authentication"
+                    app:drawableTint="?attr/colorWarning"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvSpamScoreListHint"
                     app:switchPadding="12dp" />
 
                 <TextView

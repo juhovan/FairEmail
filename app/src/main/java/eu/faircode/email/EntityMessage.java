@@ -167,6 +167,7 @@ public class EntityMessage implements Serializable {
     public Boolean spf;
     public Boolean dmarc;
     public Boolean auth; // SMTP
+    public Float spam_score;
     public Boolean mx;
     public Boolean blocklist;
     public Boolean from_domain; // spf/smtp.mailfrom <> from
@@ -812,6 +813,7 @@ public class EntityMessage implements Serializable {
                     Objects.equals(this.spf, other.spf) &&
                     Objects.equals(this.dmarc, other.dmarc) &&
                     Objects.equals(this.auth, other.auth) &&
+                    Objects.equals(this.spam_score, other.spam_score) &&
                     Objects.equals(this.mx, other.mx) &&
                     Objects.equals(this.blocklist, other.blocklist) &&
                     Objects.equals(this.from_domain, other.from_domain) &&

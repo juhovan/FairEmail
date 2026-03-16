@@ -3614,6 +3614,7 @@ class Core {
                             message.spf = helper.getSPF();
                         message.dmarc = MessageHelper.getAuthentication("dmarc", authentication);
                         message.auth = MessageHelper.getAuthentication("auth", authentication);
+                        message.spam_score = helper.getSpamScore();
                         message.smtp_from = helper.getMailFrom(authentication);
                         message.return_path = helper.getReturnPath();
                         message.submitter = helper.getSubmitter();
@@ -4827,6 +4828,7 @@ class Core {
                 message.spf = helper.getSPF();
             message.dmarc = MessageHelper.getAuthentication("dmarc", authentication);
             message.auth = MessageHelper.getAuthentication("auth", authentication);
+            message.spam_score = helper.getSpamScore();
             message.smtp_from = helper.getMailFrom(authentication);
             message.return_path = helper.getReturnPath();
             message.submitter = helper.getSubmitter();
@@ -5227,6 +5229,15 @@ class Core {
                 update = true;
                 message.headers = helper.getHeaders();
                 Log.i(folder.name + " updated id=" + message.id + " headers");
+            }
+
+            if (message.spam_score == null) {
+                Float spam_score = helper.getSpamScore();
+                if (spam_score != null) {
+                    update = true;
+                    message.spam_score = spam_score;
+                    Log.i(folder.name + " updated id=" + message.id + " uid=" + message.uid + " spam=" + spam_score);
+                }
             }
 
             if (message.hash == null || process) {

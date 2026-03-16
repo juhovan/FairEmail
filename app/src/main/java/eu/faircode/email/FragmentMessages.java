@@ -5879,6 +5879,7 @@ public class FragmentMessages extends FragmentBase
         onSharedPreferenceChanged(prefs, "notifications_reminder");
         onSharedPreferenceChanged(prefs, "datasaver_reminder");
         onSharedPreferenceChanged(prefs, "pro");
+        onSharedPreferenceChanged(prefs, "spam_score_list");
 
         if (viewType == AdapterMessage.ViewType.UNIFIED || viewType == AdapterMessage.ViewType.FOLDER) {
             boolean notify_clear = prefs.getBoolean("notify_clear", false);
@@ -5983,6 +5984,10 @@ public class FragmentMessages extends FragmentBase
             grpSupport.setVisibility(
                     !pro && banner_hidden == 0 && viewType == AdapterMessage.ViewType.UNIFIED
                             ? View.VISIBLE : View.GONE);
+        }
+
+        if ("spam_score_list".equals(key)) {
+            adapter.setSpamScoreList(prefs.getBoolean("spam_score_list", true));
         }
     }
 

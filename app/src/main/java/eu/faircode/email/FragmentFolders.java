@@ -1572,6 +1572,7 @@ public class FragmentFolders extends FragmentBase {
                                 message.spf = helper.getSPF();
                             message.dmarc = MessageHelper.getAuthentication("dmarc", authentication);
                             message.auth = MessageHelper.getAuthentication("auth", authentication);
+                            message.spam_score = helper.getSpamScore();
                             message.smtp_from = helper.getMailFrom(authentication);
                             message.return_path = helper.getReturnPath();
                             message.submitter = helper.getSubmitter();

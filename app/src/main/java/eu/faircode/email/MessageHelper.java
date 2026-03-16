@@ -2370,6 +2370,20 @@ public class MessageHelper {
         }
     }
 
+    Float getSpamScore() throws MessagingException {
+        ensureHeaders();
+
+        String[] headers = imessage.getHeader("X-Spam-Score");
+        if (headers == null || headers.length == 0)
+            return null;
+
+        StringBuilder sb = new StringBuilder();
+        for (String header : headers)
+            sb.append("X-Spam-Score: ").append(MimeUtility.unfold(header)).append('\n');
+
+        return getSpamScore(sb.toString());
+    }
+
     @NonNull
     List<String> verifyDKIM(Context context) {
         List<String> signers = new ArrayList<>();
@@ -6128,6 +6142,71 @@ public class MessageHelper {
         }
 
         return values;
+    }
+
+    private static final Pattern PATTERN_SPAM_SCORE =
+            Pattern.compile("(?:^|,)\\s*score\\s*=\\s*([-+]?\\d+(?:\\.\\d+)?)", Pattern.CASE_INSENSITIVE);
+
+    static Float getSpamScore(String headers) {
+        if (TextUtils.isEmpty(headers))
+            return null;
+
+        String value = null;
+        StringBuilder current = null;
+        boolean found = false;
+
+        String[] lines = headers.split("\\r?\\n");
+        for (String line : lines)
+            if (line.startsWith(" ") || line.startsWith("\t")) {
+                if (found && current != null)
+                    current.append(' ').append(line.trim());
+            } else {
+                if (found && current != null) {
+                    value = current.toString();
+                    break;
+                }
+
+                int colon = line.indexOf(':');
+                if (colon < 0) {
+                    found = false;
+                    current = null;
+                    continue;
+                }
+
+                String name = line.substring(0, colon).trim();
+                if ("x-spam-score".equalsIgnoreCase(name)) {
+                    found = true;
+                    current = new StringBuilder(line.substring(colon + 1).trim());
+                } else {
+                    found = false;
+                    current = null;
+                }
+            }
+
+        if (value == null && found && current != null)
+            value = current.toString();
+        if (TextUtils.isEmpty(value))
+            return null;
+
+        // Try "score=N.N" format (e.g. X-Spam-Status: Yes, score=7.5 ...)
+        Matcher m = PATTERN_SPAM_SCORE.matcher(value);
+        if (m.find())
+            try {
+                return Float.parseFloat(m.group(1));
+            } catch (Throwable ex) {
+                Log.w(ex);
+            }
+
+        // Fall back to plain numeric value (e.g. X-Spam-Score: 5.3)
+        int comma = value.indexOf(',');
+        String first = (comma < 0 ? value : value.substring(0, comma)).trim();
+        if (!TextUtils.isEmpty(first) && first.indexOf('=') < 0)
+            try {
+                return Float.parseFloat(first);
+            } catch (NumberFormatException ignored) {
+            }
+
+        return null;
     }
 
     static class Report {

@@ -210,6 +210,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
     private SwitchCompat swTextTitles;
     private SwitchCompat swAuthentication;
     private SwitchCompat swAuthenticationIndicator;
+    private SwitchCompat swSpamScoreList;
 
     private Group grpAvatar;
     private Group grpUnzip;
@@ -241,7 +242,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             "unzip", "attachments_alt", "thumbnails", "pdf_preview", "video_preview", "audio_preview", "barcode_preview",
             "list_count", "bundled_fonts", "narrow_fonts", "parse_classes",
             "background_color", "text_color", "text_size", "text_font", "text_align", "text_titles",
-            "authentication", "authentication_indicator"
+            "authentication", "authentication_indicator", "spam_score_list"
     ));
 
     @Override
@@ -396,6 +397,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
         swTextTitles = view.findViewById(R.id.swTextTitles);
         swAuthentication = view.findViewById(R.id.swAuthentication);
         swAuthenticationIndicator = view.findViewById(R.id.swAuthenticationIndicator);
+        swSpamScoreList = view.findViewById(R.id.swSpamScoreList);
 
         grpAvatar = view.findViewById(R.id.grpAvatar);
         grpUnzip = view.findViewById(R.id.grpUnzip);
@@ -1560,6 +1562,13 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             }
         });
 
+        swSpamScoreList.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+                prefs.edit().putBoolean("spam_score_list", checked).apply();
+            }
+        });
+
         // Initialize
         swFaviconsPartial.setText(getString(R.string.title_advanced_favicons_partial,
                 Helper.humanReadableByteCount(ContactInfo.FAVICON_READ_BYTES, false)));
@@ -1859,6 +1868,7 @@ public class FragmentOptionsDisplay extends FragmentBase implements SharedPrefer
             swAuthentication.setChecked(prefs.getBoolean("authentication", true));
             swAuthenticationIndicator.setChecked(prefs.getBoolean("authentication_indicator", false));
             swAuthenticationIndicator.setEnabled(swAuthentication.isChecked());
+            swSpamScoreList.setChecked(prefs.getBoolean("spam_score_list", true));
 
             updateColor();
         } catch (Throwable ex) {

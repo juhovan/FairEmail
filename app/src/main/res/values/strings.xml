@@ -716,6 +716,8 @@
     <string name="title_advanced_authentication">Show authentication warnings</string>
     <string name="title_advanced_authentication_hint">The underlying checks can be configured in the receive settings</string>
     <string name="title_advanced_authentication_indicator">Show authentication status indicator</string>
+    <string name="title_advanced_spam_score_list">Show spam score in message list</string>
+    <string name="title_advanced_spam_score_list_hint">Requires a message header named X-Spam-Score</string>
     <string name="title_advanced_authentication_none">No authentication</string>
     <string name="title_advanced_authentication_some">Partial authentication</string>
     <string name="title_advanced_authentication_all">Complete authentication</string>
