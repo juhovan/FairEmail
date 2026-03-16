@@ -255,6 +255,7 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
     private int colorSeparator;
     private int colorBookmark;
     private int colorWarning;
+    private int colorSpamWarning;
     private int colorError;
     private int colorControlNormal;
 
@@ -324,6 +325,7 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
     private boolean collapse_quotes;
     private boolean authentication;
     private boolean authentication_indicator;
+    private boolean spam_score_list;
     private boolean infra;
     private boolean tld_flags;
 
@@ -397,6 +399,7 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
         private TextView tvFolder;
         private TextView tvLabels;
         private TextView tvCount;
+        private TextView tvSpamScore;
         private ImageView ivThread;
         private TextView tvExpand;
         private TextView tvPreview;
@@ -790,6 +793,7 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
             tvFolder = itemView.findViewById(R.id.tvFolder);
             tvLabels = itemView.findViewById(R.id.tvLabels);
             tvCount = itemView.findViewById(R.id.tvCount);
+            tvSpamScore = itemView.findViewById(R.id.tvSpamScore);
             ivThread = itemView.findViewById(R.id.ivThread);
             tvError = itemView.findViewById(R.id.tvError);
             if (tvError != null)
@@ -1395,6 +1399,7 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
                 tvFolder.setAlpha(dim ? Helper.LOW_LIGHT : 1.0f);
                 tvLabels.setAlpha(dim ? Helper.LOW_LIGHT : 1.0f);
                 tvCount.setAlpha(dim ? Helper.LOW_LIGHT : 1.0f);
+                tvSpamScore.setAlpha(dim ? Helper.LOW_LIGHT : 1.0f);
                 ivThread.setAlpha(dim ? Helper.LOW_LIGHT : 1.0f);
                 tvPreview.setAlpha(dim ? Helper.LOW_LIGHT : 1.0f);
                 tvNotes.setAlpha(dim ? Helper.LOW_LIGHT : 1.0f);
@@ -1636,12 +1641,30 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
             tvLabels.setVisibility(labels == null ? View.GONE : View.VISIBLE);
 
             boolean selected = properties.getValue("selected", message.id);
+
+            Float live_score = MessageHelper.getSpamScore(message.headers);
+            Float spam_score = (live_score != null ? live_score : message.spam_score);
+            boolean show_spam_score_list = prefs.getBoolean("spam_score_list", true);
+            if (!show_spam_score_list || spam_score == null)
+                tvSpamScore.setVisibility(View.GONE);
+            else {
+                tvSpamScore.setText(String.format("%.2f", spam_score));
+                tvSpamScore.setTextColor(
+                        spam_score < 0f
+                                ? colorVerified
+                                : (spam_score < 10f
+                        ? colorSpamWarning
+                                : colorError));
+                tvSpamScore.setVisibility(View.VISIBLE);
+            }
+
             if (viewType == ViewType.THREAD || (!threading && !selected)) {
                 tvCount.setVisibility(View.GONE);
                 ivThread.setVisibility(View.GONE);
             } else {
                 tvCount.setVisibility(threading && message.visible > 1 ? View.VISIBLE : View.GONE);
-                ivThread.setVisibility(selected || message.visible > 1 ? View.VISIBLE : View.GONE);
+
+                ivThread.setVisibility(message.visible > 1 ? View.VISIBLE : View.GONE);
 
                 if (threading_unread)
                     tvCount.setText(context.getString(R.string.title_of,
@@ -2044,6 +2067,7 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
             else
                 tvSubject.setTypeface(typeface);
             tvCount.setTypeface(typeface);
+            tvSpamScore.setTypeface(typeface);
 
             int colorUnseen = (message.unseen > 0 ? colorUnread : colorRead);
             if (!Objects.equals(tvFrom.getTag(), colorUnseen)) {
@@ -8532,6 +8556,8 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
         this.colorBookmark = Helper.resolveColor(context, R.attr.colorBookmark);
         this.colorError = Helper.resolveColor(context, androidx.appcompat.R.attr.colorError);
         this.colorWarning = Helper.resolveColor(context, R.attr.colorWarning);
+        this.colorSpamWarning = ContextCompat.getColor(context,
+            Helper.isDarkTheme(context) ? R.color.darkYellowAccent : R.color.lightYellowPrimary);
         this.colorControlNormal = Helper.resolveColor(context, androidx.appcompat.R.attr.colorControlNormal);
 
         this.pin = Shortcuts.can(context);
@@ -8615,6 +8641,7 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
         this.collapse_quotes = prefs.getBoolean("collapse_quotes", false);
         this.authentication = prefs.getBoolean("authentication", true);
         this.authentication_indicator = prefs.getBoolean("authentication_indicator", false);
+        this.spam_score_list = prefs.getBoolean("spam_score_list", true);
         this.infra = prefs.getBoolean("infra", false);
         this.tld_flags = prefs.getBoolean("tld_flags", false);
         this.language_detection = prefs.getBoolean("language_detection", false);
@@ -9343,6 +9370,13 @@ public class AdapterMessage extends RecyclerView.Adapter<AdapterMessage.ViewHold
         if (this.filter_trash != filter_trash) {
             this.filter_trash = filter_trash;
             properties.refresh();
+        }
+    }
+
+    void setSpamScoreList(boolean spam_score_list) {
+        if (this.spam_score_list != spam_score_list) {
+            this.spam_score_list = spam_score_list;
+            notifyDataSetChanged();
         }
     }
 
