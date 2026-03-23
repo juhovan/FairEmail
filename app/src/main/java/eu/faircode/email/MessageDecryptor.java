@@ -306,11 +306,12 @@ class MessageDecryptor {
 
     private static ContentResult handleSuccess(Context context, SharedPreferences prefs, DB db, EntityMessage message, File plain, boolean inline, boolean auto) throws Throwable {
         if (inline) {
+            String html = null;
             try {
                 db.beginTransaction();
 
                 String text = Helper.readText(plain);
-                String html = "<div x-plain=\"true\">" + HtmlHelper.formatPlainText(text) + "</div>";
+                html = "<div x-plain=\"true\">" + HtmlHelper.formatPlainText(text) + "</div>";
                 Helper.writeText(message.getFile(context), html);
                 db.message().setMessageRevision(message.id, 1);
                 db.message().setMessageStored(message.id, new Date().getTime());
@@ -320,6 +321,8 @@ class MessageDecryptor {
             } finally {
                 db.endTransaction();
             }
+
+            runBodyRulesAfterDecrypt(context, db, message, html);
 
             WorkerFts.init(context, false);
             return new ContentResult(true, null);
@@ -407,30 +410,36 @@ class MessageDecryptor {
             db.endTransaction();
         }
 
-        if (!auto)
-            try {
-                List<EntityRule> rules = db.rule().getEnabledRules(message.folder, false);
-                if (rules != null && rules.size() > 0) {
-                    List<EntityRule> bodyRules = new ArrayList<>();
-                    for (EntityRule rule : rules)
-                        if (EntityRule.needsBody(rule))
-                            bodyRules.add(rule);
-
-                    if (bodyRules.size() > 0) {
-                        EntityMessage refreshed = db.message().getMessage(message.id);
-                        if (refreshed != null) {
-                            EntityLog.log(context, EntityLog.Type.Rules, refreshed,
-                                    "Running body rules after decrypt count=" + bodyRules.size());
-                            EntityRule.run(context, bodyRules, refreshed, false, null, html);
-                        }
-                    }
-                }
-            } catch (Throwable ex) {
-                Log.e(ex);
-            }
+        runBodyRulesAfterDecrypt(context, db, message, html);
 
         WorkerFts.init(context, false);
         return new ContentResult(true, encrypt);
+    }
+
+    private static void runBodyRulesAfterDecrypt(Context context, DB db, EntityMessage message, String html) {
+        try {
+            List<EntityRule> rules = db.rule().getEnabledRules(message.folder, false);
+            if (rules == null || rules.isEmpty())
+                return;
+
+            List<EntityRule> bodyRules = new ArrayList<>();
+            for (EntityRule rule : rules)
+                if (EntityRule.needsBody(rule))
+                    bodyRules.add(rule);
+
+            if (bodyRules.isEmpty())
+                return;
+
+            EntityMessage refreshed = db.message().getMessage(message.id);
+            if (refreshed == null)
+                return;
+
+            EntityLog.log(context, EntityLog.Type.Rules, refreshed,
+                    "Running body rules after decrypt count=" + bodyRules.size());
+            EntityRule.run(context, bodyRules, refreshed, false, null, html);
+        } catch (Throwable ex) {
+            Log.e(ex);
+        }
     }
 
     private static class ContentResult {
