@@ -462,15 +462,27 @@ class NotificationHelper {
             if (notify_preview && notify_preview_only && !message.content)
                 continue;
 
-            if (auto_decrypt_incoming && notify_preview) {
-                if (message.isEncrypted() && !message.content) {
-                    Log.i("Notify postpone id=" + message.id + " encrypted without content");
+            if (auto_decrypt_incoming && notify_preview && message.isEncrypted()) {
+                boolean pendingEncryptedAttachment = false;
+                List<EntityAttachment> attachments = db.attachment().getAttachments(message.id);
+                if (attachments != null)
+                    for (EntityAttachment attachment : attachments)
+                        if ((EntityAttachment.PGP_CONTENT.equals(attachment.encryption) ||
+                                EntityAttachment.PGP_MESSAGE.equals(attachment.encryption)) &&
+                                !attachment.available) {
+                            pendingEncryptedAttachment = true;
+                            break;
+                        }
+
+                if (pendingEncryptedAttachment) {
+                    Log.i("Notify postpone id=" + message.id + " encrypted attachment pending");
                     continue;
                 }
-                if (message.isEncrypted() && message.content && TextUtils.isEmpty(message.preview)) {
-                    Log.i("Notify postpone id=" + message.id + " preview missing");
-                    continue;
-                }
+
+                if (!message.content)
+                    Log.i("Notify fallback id=" + message.id + " encrypted without content");
+                else if (TextUtils.isEmpty(message.preview))
+                    Log.i("Notify fallback id=" + message.id + " encrypted preview missing");
             }
 
             if (foreground && notify_background_only && message.notifying == 0) {
