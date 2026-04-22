@@ -3361,7 +3361,9 @@ public class ServiceSynchronize extends ServiceBase implements SharedPreferences
                         processed.set(i, refreshed);
                         changed = true;
                     }
-                } else
+                } else if (result != null && result.skipped)
+                    clearAutoDecryptFailure(message.id);
+                else
                     recordAutoDecryptFailure(message.id);
             } catch (OperationCanceledException ex) {
                 Log.i(ex);
