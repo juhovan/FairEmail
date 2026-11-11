@@ -151,11 +151,11 @@ class MessageDecryptor {
                 if (file.exists()) {
                     String html = Helper.readText(file);
                     String body = HtmlHelper.fromHtml(html, context).toString();
-                    int begin = body.indexOf(Helper.PGP_BEGIN_MESSAGE);
-                    int end = body.indexOf(Helper.PGP_END_MESSAGE);
+                    int begin = body.indexOf(PgpHelper.PGP_BEGIN_MESSAGE);
+                    int end = body.indexOf(PgpHelper.PGP_END_MESSAGE);
                     if (begin >= 0 && begin < end) {
                         String[] lines = body
-                                .substring(begin, end + Helper.PGP_END_MESSAGE.length())
+                                .substring(begin, end + PgpHelper.PGP_END_MESSAGE.length())
                                 .split("\\r?\\n");
 
                         List<String> disarmored = new ArrayList<>();
