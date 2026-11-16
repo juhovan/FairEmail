@@ -962,8 +962,23 @@ public class ServiceSynchronize extends ServiceBase implements SharedPreferences
                                         try {
                                             List<TupleMessageEx> decrypted = autoDecryptIncomingMessages(messages);
                                             if (decrypted != messages) {
-                                                boolean foregroundNow = Boolean.TRUE.equals(foreground.getValue());
-                                                NotificationHelper.notifyMessages(ServiceSynchronize.this, decrypted, notificationData, foregroundNow);
+                                                // Serialize on executorNotify: notifyMessages must
+                                                // never run concurrently from two threads, as it
+                                                // shares notificationData (racing cancel/notify
+                                                // made notifications flap)
+                                                executorNotify.submit(new RunnableEx("autoDecryptNotify") {
+                                                    @Override
+                                                    public void delegate() {
+                                                        try {
+                                                            boolean foregroundNow = Boolean.TRUE.equals(foreground.getValue());
+                                                            NotificationHelper.notifyMessages(ServiceSynchronize.this, decrypted, notificationData, foregroundNow);
+                                                        } catch (SecurityException ex) {
+                                                            Log.w(ex);
+                                                        } catch (Throwable ex) {
+                                                            Log.e(ex);
+                                                        }
+                                                    }
+                                                });
                                             }
                                         } catch (SecurityException ex) {
                                             Log.w(ex);

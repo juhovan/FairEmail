@@ -568,9 +568,10 @@ class NotificationHelper {
                 long id = (message.content ? message.id : -message.id);
                 int currentPreviewHash = getPreviewHash(message.preview);
                 Integer previousPreviewHash = data.previewHash.get(message.id);
-                boolean previewChanged = (previousPreviewHash == null
-                    ? currentPreviewHash != 0
-                    : previousPreviewHash != currentPreviewHash);
+                // A missing hash entry (wiped on cancel or after a service
+                // restart) is not evidence that the preview has changed
+                boolean previewChanged = (previousPreviewHash != null &&
+                        previousPreviewHash != currentPreviewHash);
 
                 if (remove.contains(id)) {
                     remove.remove(id);
